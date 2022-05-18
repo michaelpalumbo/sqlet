@@ -2,26 +2,24 @@ const mysql = require('mysql2');
 const inquirer = require('inquirer');
 const cTable = require('console.table');
 
-
 // Connect to database
 const db = mysql.createConnection(
     {
       host: 'localhost',
-      // Your MySQL username,
       user: 'root',
-      // Your MySQL password
+      // Temp MySQL password:
       password: '',
       database: 'mybusiness'
     },
     console.log('Connected to the mybusiness database.')
   );
 
+// this data is accessed by inquirer's prompts, so need to update it prior to running each prompt
 let currentManagers = []
 let currentDepartments = []
 let currentRoles = []
 let currentEmployees = []
 
-// this data is accessed by inquirer's prompts, so need to update it prior to running each prompt
 function updateDepartments(){
     return new Promise(() => db.query(`SELECT * FROM departments`, (err, rows) => {
         for(i=0;i<rows.length;i++){
@@ -30,7 +28,6 @@ function updateDepartments(){
         return currentDepartments
     }))
 }
-
 function updateManagers(){
     return new Promise(() => db.query(`SELECT * FROM employees`, (err, rows) => {
         for(i=0;i<rows.length;i++){
@@ -42,7 +39,6 @@ function updateManagers(){
         return currentManagers
     }))   
 }
-
 function updateRoles(){
     return new Promise(() => db.query(`SELECT * FROM roles`, (err, rows) => {
         for(i=0;i<rows.length;i++){
@@ -54,7 +50,6 @@ function updateRoles(){
 
     }))   
 }
-
 function updateEmployees(){
     return new Promise(() => db.query(`SELECT * FROM employees`, (err, rows) => {
         for(i=0;i<rows.length;i++){
@@ -62,10 +57,8 @@ function updateEmployees(){
             currentEmployees.push(fullName)
         }
         return currentEmployees
-
     }))   
 }
-
 // found this code pattern for async functions at https://stackoverflow.com/questions/41292316/how-do-i-await-multiple-promises-in-parallel-without-fail-fast-behavior & https://stackoverflow.com/questions/43302584/why-doesnt-the-code-after-await-run-right-away-isnt-it-supposed-to-be-non-blo
 async function update(){
     currentDepartments = []
@@ -74,7 +67,7 @@ async function update(){
     currentEmployees = []
 
     try {
-        let [data1, data2, data3, data4] = await Promise.all([
+        let [dept, mgrs, roles, empls] = await Promise.all([
             updateDepartments(),
             updateManagers(),
             updateRoles(),
@@ -84,10 +77,6 @@ async function update(){
         return ex;
     }
 }
-
-
-
-
 
 function firstPrompt(){
     // since this function gets called after every subsequent prompt, update the arrays which the prompts read from
@@ -102,8 +91,7 @@ function firstPrompt(){
                     'view all departments', 'view all roles', 'view all employees', new inquirer.Separator(), 'add a department', 'add a role', 'add an employee', 'update an employee role'
                 ],
             }
-        ])
-        
+        ])    
         .then((answers) => {
             console.log(answers.userAction)
             switch(answers.userAction){
@@ -111,8 +99,7 @@ function firstPrompt(){
                     db.query(`SELECT * FROM departments`, (err, rows) => {
                         console.table(rows);
                         firstPrompt();
-                    });
-                    
+                    });                
                 break
                 case 'view all roles':
                     db.query(`SELECT * FROM roles`, (err, rows) => {
@@ -138,7 +125,6 @@ function firstPrompt(){
                 case 'update an employee role':
                     updateEmployee()
                 break
-
             }
         })
         .catch((error) => {
@@ -150,10 +136,7 @@ function firstPrompt(){
     });
 }
 
-
-
 function addDepartment(){
-
     inquirer.prompt([
         {
             type: 'input',
@@ -247,9 +230,7 @@ function addEmployee(){
             name: 'manager',
             message: "What is the name of this employee's manager?",
             choices: currentManagers
-        },
-    
-    
+        },    
     ]).then((answers) => {
         console.log(answers)
         // add role to roles table in mysql2
@@ -282,34 +263,17 @@ function updateEmployee(){
             message: 'Which role do you want to assign them?',
             choices: currentRoles
         }
-    
     ]).then((answers) => {
         let tableIndex = currentEmployees.indexOf(answers.name)+1
-        
-        let firstName = answers.name.split(' ')[0]
-        let lastName = answers.name.split(' ')[1]
-
         // add role to roles table in mysql2
-            db.query(`UPDATE employees set jobtitle =? WHERE id = ?`, [answers.jobtitle, tableIndex], function(err, result) {
-                console.log("Record Updated!!");
-                console.log(result);
-                db.query(`SELECT * FROM employees`, (err, rows) => {
-                    console.table(rows);
-                    firstPrompt();
-                });
+        db.query(`UPDATE employees set jobtitle =? WHERE id = ?`, [answers.jobtitle, tableIndex], function(err, result) {
+            console.log("Record Updated!!");
+            console.log(result);
+            db.query(`SELECT * FROM employees`, (err, rows) => {
+                console.table(rows);
+                firstPrompt();
+            });
         })
-    //     db.query('INSERT INTO employees (firstname, lastname, jobtitle, department, salary, manager) VALUES (?,?,?,?,?,?)', [answers.firstname, answers.lastname, answers.jobtitle, answers.department, answers.salary, answers.manager],(error, 
-    // res) => {
-    //     if (error) {
-    //         console.log(error)
-    //     };
-    //         if(res){
-    //             db.query(`SELECT * FROM employees`, (err, rows) => {
-    //                 console.table(rows);
-    //                 firstPrompt();
-    //             });
-    //         }
-    //     });
     });    
 }
 firstPrompt();
